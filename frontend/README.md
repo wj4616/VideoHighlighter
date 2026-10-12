@@ -32,7 +32,12 @@ native Qt timeline viewer is still used for the video-heavy surfaces — the
   on another drive, not under the project folder. Reel reads the manifest first;
   reopening the app restores the last Auto project folder. For an older run
   whose project was not yet remembered, select its existing project folder in
-  Reel once. You do not need to rerun Auto.
+  Reel once. You do not need to rerun Auto. In Reel, **Auto highlights** uses
+  every recorded highlight from that job. To use exactly one video instead,
+  choose **One video file** → **Choose video**: this native dialog picks a
+  single file and the resulting plan and render use only that file, even when
+  its folder or the Auto job contains other videos. Without a remembered Auto
+  project folder, the output is saved beside the selected video.
 - **Rotation-correct output** — the engine reads each clip's orientation
   metadata (`GET /video-info` → `rotation`) and bakes rotated phone/GoPro
   footage upright when cutting and combining, so the reel isn't sideways.

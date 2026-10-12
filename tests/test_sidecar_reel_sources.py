@@ -36,6 +36,38 @@ def test_explicit_sources_take_precedence_over_auto_job(tmp_path):
                                      source_paths=[str(selected)])) == [str(selected)]
 
 
+def test_explicit_single_file_ignores_other_files_and_auto_outputs(tmp_path):
+    project = tmp_path / "project"
+    project.mkdir()
+    source = tmp_path / "source"
+    source.mkdir()
+    selected, other = source / "chosen.mp4", source / "other.mp4"
+    selected.touch()
+    other.touch()
+    recorded = source / "auto_highlight.mp4"
+    recorded.touch()
+    save_job(JobState(job_id="completed", root=str(project),
+                      highlights=[str(recorded)]))
+
+    assert _reel_sources(ReelRequest(dest_root=str(project),
+                                     source_paths=[str(selected)])) == [str(selected)]
+
+
+def test_explicit_missing_file_never_falls_back_to_auto_or_folder(tmp_path):
+    project = tmp_path / "project"
+    project.mkdir()
+    recorded = project / "auto_highlight.mp4"
+    recorded.touch()
+    save_job(JobState(job_id="completed", root=str(project),
+                      highlights=[str(recorded)]))
+
+    with pytest.raises(ValueError, match="Selected video file is missing"):
+        _reel_sources(ReelRequest(dest_root=str(project),
+                                  source_paths=[str(project / "gone.mp4")]))
+    with pytest.raises(ValueError, match="Choose a video file"):
+        _reel_sources(ReelRequest(dest_root=str(project), source_paths=[]))
+
+
 def test_missing_auto_outputs_are_reported_not_silently_ignored(tmp_path):
     project = tmp_path / "project"
     project.mkdir()

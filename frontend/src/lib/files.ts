@@ -26,6 +26,20 @@ export async function pickVideos(): Promise<string[]> {
   return Array.isArray(selected) ? selected : [selected]
 }
 
+/** Pick exactly one local video for Reel; never broaden the selection to its folder. */
+export async function pickVideo(): Promise<string | null> {
+  if (!isTauri()) {
+    return window.prompt("Running in browser (no native picker). Paste an absolute video path:") || null
+  }
+  const { open } = await import("@tauri-apps/plugin-dialog")
+  const selected = await open({
+    multiple: false,
+    filters: [{ name: "Video", extensions: VIDEO_EXTS }],
+  })
+  if (!selected) return null
+  return Array.isArray(selected) ? (selected[0] ?? null) : selected
+}
+
 /** Pick a folder (download destination). Returns null if cancelled. */
 export async function pickDirectory(): Promise<string | null> {
   if (!isTauri()) {

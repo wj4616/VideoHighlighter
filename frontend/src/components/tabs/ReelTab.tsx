@@ -56,6 +56,7 @@ import {
   pickAudioFile,
   pickDirectory,
   pickTrackFile,
+  pickVideo,
 } from "@/lib/files"
 
 const SHAPES = [
@@ -155,6 +156,8 @@ interface Props {
 
 export function ReelTab({ running, onCancel, suggestedRoot }: Props) {
   const [root, setRoot] = useState("")
+  const [sourceMode, setSourceMode] = useState<"auto" | "file">("auto")
+  const [selectedFile, setSelectedFile] = useState("")
   const [duration, setDuration] = useState(24)
   const [pace, setPace] = useState("energetic")
   const [shape, setShape] = useState(0)
@@ -211,6 +214,7 @@ export function ReelTab({ running, onCancel, suggestedRoot }: Props) {
   const request = useCallback(
     (): ReelRequest => ({
       dest_root: root,
+      source_paths: sourceMode === "file" ? (selectedFile ? [selectedFile] : []) : undefined,
       duration,
       pace,
       title: "Reel",
@@ -231,6 +235,8 @@ export function ReelTab({ running, onCancel, suggestedRoot }: Props) {
     }),
     [
       root,
+      sourceMode,
+      selectedFile,
       duration,
       pace,
       shape,
@@ -252,11 +258,12 @@ export function ReelTab({ running, onCancel, suggestedRoot }: Props) {
   // Re-plan whenever a choice changes. Planning only probes durations, so it is
   // cheap enough to run on every keystroke of the length field.
   useEffect(() => {
-    if (!root) {
+    if (sourceMode === "file" ? !selectedFile : !root) {
       setPlan(null)
       return
     }
     let stale = false
+    setPlan(null)
     setPlanning(true)
     void planReel(request())
       .then((p) => {
@@ -268,7 +275,7 @@ export function ReelTab({ running, onCancel, suggestedRoot }: Props) {
     return () => {
       stale = true
     }
-  }, [request, root])
+  }, [request, root, sourceMode, selectedFile])
 
   const tooShort = Boolean(band && duration < band.minimum_duration - 0.5)
 
@@ -295,28 +302,53 @@ export function ReelTab({ running, onCancel, suggestedRoot }: Props) {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1.5">
-            <Label className="text-xs">Footage</Label>
-            <div className="flex gap-2">
-              <Input
-                value={root}
-                onChange={(e) => setRoot(e.target.value)}
-                placeholder="the project folder the Auto tab wrote to"
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={async () => {
-                  const dir = await pickDirectory()
-                  if (dir) setRoot(dir)
-                }}
-              >
-                Browse
-              </Button>
+            <Label className="text-xs">Footage source</Label>
+            <div className="flex flex-wrap gap-2">
+              <Button variant={sourceMode === "auto" ? "default" : "outline"} size="sm"
+                onClick={() => setSourceMode("auto")}>Auto highlights</Button>
+              <Button variant={sourceMode === "file" ? "default" : "outline"} size="sm"
+                onClick={() => setSourceMode("file")}>One video file</Button>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Uses the highlights an earlier run already found, so nothing is
-              analysed twice.
-            </p>
+            {sourceMode === "auto" ? (
+              <>
+                <div className="flex gap-2">
+                  <Input
+                    value={root}
+                    onChange={(e) => setRoot(e.target.value)}
+                    placeholder="the project folder the Auto tab wrote to"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      const dir = await pickDirectory()
+                      if (dir) setRoot(dir)
+                    }}
+                  >
+                    Browse
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Uses the highlights recorded by Auto, even when those files are outside this project folder.
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-2">
+                  <span className="min-w-0 flex-1 truncate text-sm" title={selectedFile}>
+                    {selectedFile ? basename(selectedFile) : "No video selected"}
+                  </span>
+                  <Button variant="outline" size="sm" onClick={async () => {
+                    const file = await pickVideo()
+                    if (file) setSelectedFile(file)
+                  }}>Choose video</Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Only this video will be used for the shot plan and render.
+                  {root ? " The reel saves in the Auto project folder." : " The reel saves beside this video."}
+                </p>
+              </>
+            )}
           </div>
 
           <Separator />
@@ -731,9 +763,9 @@ export function ReelTab({ running, onCancel, suggestedRoot }: Props) {
             {planning && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
           </CardHeader>
           <CardContent className="space-y-3">
-            {!root && (
+            {!(sourceMode === "file" ? selectedFile : root) && (
               <p className="text-xs text-muted-foreground">
-                Choose a footage folder to see the shot plan.
+                {sourceMode === "file" ? "Choose one video to see the shot plan." : "Choose the Auto project folder to see the shot plan."}
               </p>
             )}
             {plan && !plan.ok && (
@@ -757,7 +789,7 @@ export function ReelTab({ running, onCancel, suggestedRoot }: Props) {
                 <Button
                   size="sm"
                   onClick={() => void render()}
-                  disabled={!plan?.ok}
+                  disabled={planning || !plan?.ok || !(sourceMode === "file" ? selectedFile : root)}
                 >
                   <Play className="size-3.5" /> Make the reel
                 </Button>
@@ -766,7 +798,7 @@ export function ReelTab({ running, onCancel, suggestedRoot }: Props) {
                 variant="ghost"
                 size="sm"
                 onClick={() => void planReel(request()).then(setPlan)}
-                disabled={!root}
+                disabled={sourceMode === "file" ? !selectedFile : !root}
               >
                 <RefreshCw className="size-3.5" /> Re-plan
               </Button>

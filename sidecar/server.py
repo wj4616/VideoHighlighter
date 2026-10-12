@@ -1020,8 +1020,13 @@ def _reel_sources(req: "ReelRequest") -> list[str]:
     highlights recorded by Auto, even when they live beside source footage."""
     import glob
 
-    if req.source_paths:
-        return [p for p in req.source_paths if p and os.path.exists(p)]
+    if req.source_paths is not None:
+        if not req.source_paths:
+            raise ValueError("Choose a video file for this reel")
+        missing = [p for p in req.source_paths if not p or not os.path.isfile(p)]
+        if missing:
+            raise ValueError("Selected video file is missing; choose an existing file")
+        return list(dict.fromkeys(req.source_paths))
     if not req.dest_root:
         return []
 
