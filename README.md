@@ -8,6 +8,11 @@
 
 # VideoHighlighter
 
+> **Custom Linux-first fork:** [wj4616/VideoHighlighter](https://github.com/wj4616/VideoHighlighter)
+> retains the upstream AGPL-3.0 license and copyright notices. Its Qt Simple
+> view adds a custom exact highlight length and a content-based Optimal Length
+> option with adjustable strictness. The original three presets remain.
+
 <!-- hy-mt2-i18n:start -->
 **English** | [中文](./README_zh-CN.md) | [日本語](./README_ja.md) | [Español](./README_es.md)
 <!-- hy-mt2-i18n:end -->
@@ -77,6 +82,9 @@ and re-running costs milliseconds.
 https://github.com/user-attachments/assets/5c85af94-9228-4537-926a-1ed7a91fa5ee
 
 ## Install
+
+For this fork's Linux source setup and the new length modes, see
+[Linux / from source](docs/INSTALL.md#linux--from-source).
 
 Grab a build from [Releases](https://github.com/Aseiel/VideoHighlighter/releases):
 

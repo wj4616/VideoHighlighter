@@ -31,6 +31,7 @@ sort, with no detector re-run and no frame decoded.
 from __future__ import annotations
 
 from typing import Mapping, Optional, Sequence
+import math
 
 import numpy as np
 
@@ -79,6 +80,36 @@ def rank_seconds(
     # tie-break. Negated because lexsort is ascending.
     order = np.lexsort((-confidences, -score[candidates]))
     return candidates[order]
+
+
+def select_optimal_segments(
+    score: np.ndarray, *, video_duration: float, clip_time: int,
+    strictness: int = 50,
+    confidence_by_sec: Mapping[int, float] | None = None,
+) -> list[tuple[float, float]]:
+    """Select scored windows without a preselected duration budget.
+
+    Strictness controls the fraction of positive-scoring seconds eligible to
+    anchor a clip: 0 keeps all, 100 keeps the top tenth. Ranking is based on
+    this video's own scores, so sparse footage yields a short cut rather than
+    padding with uninteresting material. Ties use detection confidence.
+    """
+    if clip_time < 1 or not 0 <= strictness <= 100:
+        raise ValueError("clip_time must be positive and strictness in 0..100")
+    ranked = rank_seconds(score, duration_mode="MAX", confidence_by_sec=confidence_by_sec)
+    eligible = math.ceil(len(ranked) * (1 - 0.9 * strictness / 100))
+    used = np.zeros(max(0, math.ceil(video_duration)), dtype=bool)
+    segments = []
+    for sec in ranked[:eligible]:
+        start = max(0, int(sec) - clip_time // 2)
+        end = min(video_duration, start + clip_time)
+        if end - start < clip_time and start > 0:
+            start = max(0, end - clip_time)
+        if end <= start or used[start:math.ceil(end)].any():
+            continue
+        segments.append((float(start), float(end)))
+        used[start:math.ceil(end)] = True
+    return sorted(segments)
 
 
 def bucket_count(*, clip_time: int, target_duration: float) -> int:
@@ -133,6 +164,7 @@ def select_fixed_window_segments(
     )
 
     segments: list[tuple[float, float]] = []
+    spent = 0.0
     used_seconds: set[int] = set()
     for start, end in exclude or ():
         used_seconds.update(range(int(start), int(np.ceil(end))))
@@ -149,6 +181,7 @@ def select_fixed_window_segments(
         return min(buckets - 1, int(sec / video_duration * buckets))
 
     def fill(*, respect_ceiling: bool) -> None:
+        nonlocal spent
         for sec in ranked:
             sec = int(sec)
             if sec in used_seconds:
@@ -166,7 +199,7 @@ def select_fixed_window_segments(
             if any(s in used_seconds for s in range(int(start), int(end))):
                 continue
 
-            remaining = target_duration - sum(e - s for s, e in segments)
+            remaining = target_duration - spent
             if remaining <= 0:
                 return
             if end - start > remaining:
@@ -176,18 +209,34 @@ def select_fixed_window_segments(
                 continue
 
             segments.append((start, end))
+            spent += end - start
             spent_per_bucket[bucket] += end - start
             used_seconds.update(range(int(start), int(end)))
 
-            if sum(e - s for s, e in segments) >= target_duration:
+            if spent >= target_duration:
                 return
 
     fill(respect_ceiling=True)
     # Buckets can run out of candidates before the budget does — most obviously
     # in EXACT mode, which must reach its target however the score is shaped.
     # Whatever the capped pass could not place is placed by the ranking alone.
-    if sum(e - s for s, e in segments) < target_duration:
+    if spent < target_duration:
         fill(respect_ceiling=False)
+
+    # Near the full source duration, centred windows can leave gaps shorter
+    # than clip_time that no ranked window fits. EXACT may use those gaps.
+    if duration_mode == "EXACT":
+        remaining = min(target_duration, video_duration) - spent
+        if remaining > 1e-6:
+            occupied = sorted(segments + list(exclude or ()))
+            cursor = 0.0
+            for start, end in occupied + [(video_duration, video_duration)]:
+                gap_end = min(video_duration, max(cursor, start))
+                if gap_end > cursor and remaining > 1e-6:
+                    take = min(gap_end - cursor, remaining)
+                    segments.append((cursor, cursor + take))
+                    remaining -= take
+                cursor = max(cursor, end)
 
     segments.sort(key=lambda seg: seg[0])
     return segments

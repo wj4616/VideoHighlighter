@@ -39,13 +39,25 @@ SIMPLE_LENGTHS = {
 }
 
 
-def apply_simple_run(config: dict, length: str = "medium") -> dict:
+def apply_simple_run(
+    config: dict, length: str = "medium", *,
+    custom_seconds: int | None = None, strictness: int = 50,
+) -> dict:
     """Overlay the one-button preset onto a pipeline config (in place)."""
     config.update(SIMPLE_SCORING)
-    max_dur, clip = SIMPLE_LENGTHS.get(length, SIMPLE_LENGTHS["medium"])
+    if length == "custom":
+        if custom_seconds is None or not 1 <= custom_seconds <= 604800:
+            raise ValueError("Custom duration must be 1–604800 seconds")
+        max_dur, clip = custom_seconds, 10
+    else:
+        max_dur, clip = SIMPLE_LENGTHS.get(length, SIMPLE_LENGTHS["medium"])
     config["max_duration"] = max_dur
     config["clip_time"] = clip
-    config["exact_duration"] = None
+    config["exact_duration"] = custom_seconds if length == "custom" else None
+    config["optimal_length"] = length == "optimal"
+    if not 0 <= strictness <= 100:
+        raise ValueError("Optimal strictness must be between 0 and 100")
+    config["optimal_strictness"] = strictness
     return config
 
 

@@ -17,7 +17,7 @@ from modules.segments.motion_scene_detect_optimized import detect_scenes_motion_
 from modules.media.video_cache import VideoAnalysisCache, CachedAnalysisData, build_analysis_cache_params
 from modules.media.video_cutter import cut_video
 from modules.segments.auto_segments import build_auto_segments
-from modules.segments.highlight_select import peak_confidence_by_sec, select_fixed_window_segments
+from modules.segments.highlight_select import peak_confidence_by_sec, select_fixed_window_segments, select_optimal_segments
 from modules.system.device_utils import resolve_yolo_device
 from modules.system.app_paths import ffmpeg_exe
 from modules.media import ffmpeg_tools
@@ -445,8 +445,10 @@ def run_highlighter(video_path, sample_rate=5, gui_config: dict = None,
         # Merge CLI/gui-style values with defaults
         OUTPUT_FILE = gui_config.get("output_file") or config.get("video", {}).get("output", "highlight.mp4")
         MAX_DURATION = gui_config.get("max_duration") or config.get("highlights", {}).get("max_duration", 420)
-        EXACT_DURATION = gui_config.get("exact_duration") or config.get("highlights", {}).get("exact_duration", None)
-        CLIP_TIME = gui_config.get("clip_time") or config.get("highlights", {}).get("clip_time", 10)
+        EXACT_DURATION = gui_config.get("exact_duration", config.get("highlights", {}).get("exact_duration"))
+        CLIP_TIME = gui_config.get("clip_time", config.get("highlights", {}).get("clip_time", 10))
+        OPTIMAL_LENGTH = bool(gui_config.get("optimal_length", False))
+        OPTIMAL_STRICTNESS = int(gui_config.get("optimal_strictness", 50))
         # 0.0 = take the best-scoring moments wherever they fall (the original
         # behaviour); 1.0 = spread the cut evenly so the whole video is covered.
         COVERAGE = gui_config.get("coverage")
@@ -499,7 +501,9 @@ def run_highlighter(video_path, sample_rate=5, gui_config: dict = None,
 
         target_duration = EXACT_DURATION if EXACT_DURATION else MAX_DURATION
         duration_mode = "EXACT" if EXACT_DURATION else "MAX"
-        log(f"🎯 Mode: {duration_mode} duration of {target_duration} seconds ({target_duration/60:.1f} minutes)")
+        log("🎯 Mode: OPTIMAL length (content-based, strictness "
+            f"{OPTIMAL_STRICTNESS})" if OPTIMAL_LENGTH else
+            f"🎯 Mode: {duration_mode} duration of {target_duration} seconds ({target_duration/60:.1f} minutes)")
 
         # ── Hard gate: actions require objects but no objects configured ─────────────
         actions_require_objects = gui_config.get("actions_require_objects", False)
@@ -639,6 +643,16 @@ def run_highlighter(video_path, sample_rate=5, gui_config: dict = None,
                 return None
         else:
             log("ℹ️ Processing full video")
+
+        # An exact request cannot exceed the source (or the selected range).
+        # Set the working budget before action candidate quotas are computed.
+        if OPTIMAL_LENGTH:
+            target_duration = video_duration
+        elif EXACT_DURATION:
+            target_duration = min(float(EXACT_DURATION), video_duration)
+            if EXACT_DURATION > video_duration:
+                log(f"⚠️ Requested {EXACT_DURATION}s exceeds the available "
+                    f"{video_duration:.1f}s; using the available duration")
 
         # ========== CACHE CHECK ==========
         # Goal:
@@ -2001,7 +2015,16 @@ def run_highlighter(video_path, sample_rate=5, gui_config: dict = None,
             log(f"✅ Rebuilt {len(selected_sequences)} action sequences from "
                 f"{len(action_detections)} cached detections")
 
-        if CLIP_TIME == 0:
+        if OPTIMAL_LENGTH:
+            segments = select_optimal_segments(
+                score, video_duration=video_duration,
+                clip_time=max(1, int(CLIP_TIME)), strictness=OPTIMAL_STRICTNESS,
+                confidence_by_sec=peak_confidence_by_sec(detections_by_sec),
+            )
+            target_duration = sum(end - start for start, end in segments)
+            duration_mode = "OPTIMAL"
+            log(f"🎯 Optimal length: {target_duration:.1f}s from {len(segments)} scored clips")
+        elif CLIP_TIME == 0:
             # ========== AUTO-SEGMENTATION MODE ==========
             log("🔧 CLIP_TIME=0 → using auto-segmentation (variable-length clips)")
             

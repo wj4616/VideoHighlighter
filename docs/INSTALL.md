@@ -58,10 +58,33 @@ something breaks.
 
 ## Linux / from source
 
+In this fork, use a project-local virtual environment (not the system Python):
+
 ```bash
-pip install -r requirements.txt
-python main.py
+git clone https://github.com/wj4616/VideoHighlighter.git
+cd VideoHighlighter
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python main.py
 ```
+
+On the **Simple** screen choose **Custom duration** and enter seconds (1800 for
+30 minutes, 3600 for an hour). This requests an exact output length; it cannot
+exceed the source or the selected time range. Excluded footage may also shorten
+the result. For a length chosen from the footage, choose **Optimal length**. Its
+strictness slider ranges from 0 (keep all positive-scoring candidates) to 100
+(keep only the top 10%); higher normally produces a shorter cut. Footage with
+no scored moments is not padded. Scoring uses the enabled detectors and the
+existing Simple defaults (motion peaks and loudness bursts), not a separate
+trained quality model. The three original presets remain available.
+
+**Detailed settings** also accept max/exact durations over one hour (up to seven
+days); the new Optimal mode currently lives in the Qt Simple screen. The web /
+Tauri front end retains its existing duration controls.
+
+For lightweight selector tests without installing ML models, use
+`.venv/bin/python -m pip install -r requirements-dev.txt` in a separate test
+virtual environment and run `.venv/bin/python -m pytest -q`.
 
 FFmpeg comes with it via `imageio-ffmpeg` — nothing to install separately. An
 FFmpeg already on your `PATH` is used instead when there is one.

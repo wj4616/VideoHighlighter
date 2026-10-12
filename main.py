@@ -1739,11 +1739,11 @@ class VideoHighlighterGUI(QWidget):
         # Main duration controls (always visible)
         duration_form = QFormLayout()
 
-        self.spin_max_duration = QSpinBox(); self.spin_max_duration.setRange(1,3600); self.spin_max_duration.setValue(highlights_cfg.get("max_duration", 420))
+        self.spin_max_duration = QSpinBox(); self.spin_max_duration.setRange(1,604800); self.spin_max_duration.setValue(highlights_cfg.get("max_duration", 420))
         self.spin_max_duration.setToolTip(
             "Stop the highlight at this many seconds. It may be shorter when "
             "nothing else scored. Ignored when exact duration is above 0.")
-        self.spin_exact_duration = QSpinBox(); self.spin_exact_duration.setRange(0,3600); self.spin_exact_duration.setValue(highlights_cfg.get("exact_duration", 0))
+        self.spin_exact_duration = QSpinBox(); self.spin_exact_duration.setRange(0,604800); self.spin_exact_duration.setValue(highlights_cfg.get("exact_duration", 0))
         self.spin_exact_duration.setToolTip(
             "Above 0, the highlight is this many seconds — low-scoring seconds "
             "are used to fill it. 0 leaves max duration in charge, and the cut "
@@ -5655,10 +5655,14 @@ class VideoHighlighterGUI(QWidget):
             page = getattr(self, "simple_page", None)
             if page is not None:
                 length = page.length_key()
-            apply_simple_run(config, length)
+            apply_simple_run(config, length,
+                             custom_seconds=page.custom_seconds.value() if page is not None else None,
+                             strictness=page.strictness.value() if page is not None else 50)
 
-        # Remove None values
-        config = {k: v for k,v in config.items() if v is not None}
+        # Keep an explicit disabled exact duration so config.yaml cannot
+        # silently override the Simple preset or Optimal Length selection.
+        config = {k: v for k, v in config.items()
+                  if v is not None or k == "exact_duration"}
 
         # Clear previous logs
         self.log_output.clear()

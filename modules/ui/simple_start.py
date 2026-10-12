@@ -17,7 +17,7 @@ import os
 from PySide6.QtCore import QSettings, Qt, QTimer
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
-    QComboBox, QFrame, QHBoxLayout, QLabel, QListWidget, QProgressBar,
+    QComboBox, QFrame, QHBoxLayout, QLabel, QListWidget, QProgressBar, QSlider, QSpinBox,
     QPushButton, QScrollArea, QSizePolicy, QTextEdit, QVBoxLayout, QWidget,
 )
 
@@ -222,6 +222,8 @@ class SimpleStartPage(QWidget):
         self.length.addItem("Short  — about 1–2 minutes", "short")
         self.length.addItem("Medium  — about 4 minutes", "medium")
         self.length.addItem("Longer  — about 7 minutes", "long")
+        self.length.addItem("Custom duration", "custom")
+        self.length.addItem("Optimal length — based on content", "optimal")
         self.length.setCurrentIndex(1)
         self.length.setMinimumWidth(200)
         length_row.addWidget(length_lab)
@@ -232,6 +234,28 @@ class SimpleStartPage(QWidget):
         self.clear_btn.setVisible(False)
         length_row.addWidget(self.clear_btn)
         root.addLayout(length_row)
+
+        self.custom_seconds = QSpinBox()
+        self.custom_seconds.setRange(1, 604800)  # seven days, not the old one-hour limit
+        self.custom_seconds.setValue(1800)
+        self.custom_seconds.setSuffix(" seconds")
+        self.custom_seconds.setToolTip("Exact length: 1800 = 30 minutes; 3600 = 1 hour. "
+                                       "Limited by source length and excluded footage.")
+        root.addWidget(self.custom_seconds)
+
+        self.strictness = QSlider(Qt.Horizontal)
+        self.strictness.setRange(0, 100)
+        self.strictness.setValue(50)
+        self.strictness.setToolTip("Higher keeps only the strongest-scoring moments; "
+                                   "lower includes more of the source. No fixed output length.")
+        self.strictness_label = QLabel("Optimal strictness: 50 (higher = shorter)")
+        self.strictness.valueChanged.connect(
+            lambda value: self.strictness_label.setText(
+                f"Optimal strictness: {value} (higher = shorter)"))
+        root.addWidget(self.strictness_label)
+        root.addWidget(self.strictness)
+        self.length.currentIndexChanged.connect(self._update_length_controls)
+        self._update_length_controls()
 
         self.status = QLabel("Ready")
         self.status.setStyleSheet(f"color: {p.text_dim}; font-weight: 600;")
@@ -318,7 +342,13 @@ class SimpleStartPage(QWidget):
 
     def length_key(self) -> str:
         data = self.length.currentData()
-        return data if data in SIMPLE_LENGTHS else "medium"
+        return data if data in (*SIMPLE_LENGTHS, "custom", "optimal") else "medium"
+
+    def _update_length_controls(self) -> None:
+        self.custom_seconds.setVisible(self.length_key() == "custom")
+        optimal = self.length_key() == "optimal"
+        self.strictness.setVisible(optimal)
+        self.strictness_label.setVisible(optimal)
 
     def refresh_files(self, *, update_idle_status: bool = True) -> None:
         self.file_list.clear()
