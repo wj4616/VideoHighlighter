@@ -225,6 +225,8 @@ def _vision_search(job: dict, emit, log_fn, progress_fn, cancel_evt) -> None:
 
 def run_job(conn, job: dict, cancel_evt, pause_evt, preview_flag) -> None:
     """Entry point for the child process. Never raises into the parent."""
+    from modules.system.frozen_env import restore_linux_library_path
+    restore_linux_library_path()
     _install_path()
     _force_utf8_stdio()
 

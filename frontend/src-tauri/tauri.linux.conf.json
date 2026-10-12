@@ -1,0 +1,12 @@
+{
+  "build": {
+    "beforeDevCommand": "corepack pnpm dev --host 127.0.0.1",
+    "beforeBuildCommand": "corepack pnpm build"
+  },
+  "bundle": {
+    "targets": [
+      "deb"
+    ],
+    "resources": null
+  }
+}

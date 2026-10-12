@@ -65,6 +65,9 @@ frontend/src-tauri/gen/
 frontend/src-tauri/binaries/
 dist-sidecar/
 build-sidecar/
+dist-viewer/
+build-viewer/
+dist-linux-portable/
 
 # The Windows installer: CI fetches 7zr.exe from 7-zip.org next to the .iss and
 # compiles the Setup.exe. Both are build inputs/outputs, not source.

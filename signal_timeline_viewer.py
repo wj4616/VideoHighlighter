@@ -5449,6 +5449,8 @@ def show_timeline_viewer(video_path, cache_data=None):
     Returns:
         int: Application exit code
     """
+    from modules.system.frozen_env import restore_linux_library_path
+    restore_linux_library_path()
     debug_log("="*60)
     debug_log(f"🎬 show_timeline_viewer called")
     debug_log(f"  - video_path: {video_path}")

@@ -14,8 +14,8 @@ Callbacks are routed to a per-run WebSocket instead of Qt signals.
 
 Run standalone for dev:
     python -m sidecar.server --port 8756
-Packaged: PyInstaller builds this into a single-file binary used as the Tauri
-sidecar (see packaging/).
+Packaged: PyInstaller builds an onedir binary bundled as a Tauri resource
+(see packaging/).
 """
 
 from __future__ import annotations
@@ -29,6 +29,11 @@ import threading
 import traceback
 import uuid
 from typing import Any, Optional
+
+# PyInstaller children re-exec this entry point. Handle their worker/tracker
+# arguments before RunManager creates spawn Events, avoiding recursive trackers.
+if getattr(sys, "frozen", False):
+    mp.freeze_support()
 
 # Make the project root importable whether run as ``python -m sidecar.server``
 # from source or as a frozen one-file binary (sys._MEIPASS layout).
@@ -52,6 +57,8 @@ async def lifespan(_app: "FastAPI"):
     # before any WebSocket has connected.
     manager.loop = asyncio.get_running_loop()
     # Jobs run ffmpeg by name; the one pip installed has to answer to it.
+    from modules.system.frozen_env import restore_linux_library_path
+    restore_linux_library_path()
     from modules.media.ffmpeg_tools import ensure_ffmpeg_on_path
     ensure_ffmpeg_on_path()
     yield
@@ -1790,13 +1797,20 @@ async def open_editor(req: EditorRequest) -> dict:
 
     try:
         if getattr(_sys, "frozen", False):
-            # The packaged Qt app is a single exe; `--timeline <video>` asks it
-            # for just the viewer rather than the whole GUI (see main.py).
-            exe = os.path.join(os.path.dirname(_sys.executable),
-                               "VideoHighlighter.exe")
-            if not os.path.exists(exe):
-                return {"ok": False, "error": "Qt app executable not found"}
-            cmd = [exe, "--timeline", req.video_path]
+            if _sys.platform == "linux":
+                # The Tauri release bundles sidecar and Qt viewer as siblings.
+                exe = os.path.join(os.path.dirname(os.path.dirname(_sys.executable)),
+                                   "vh-viewer", "vh-viewer")
+                if not os.path.isfile(exe):
+                    return {"ok": False, "error": "Bundled Qt Timeline Viewer not found"}
+                cmd = [exe, req.video_path]
+            else:
+                # Keep the existing Windows packaged Qt launcher.
+                exe = os.path.join(os.path.dirname(_sys.executable),
+                                   "VideoHighlighter.exe")
+                if not os.path.exists(exe):
+                    return {"ok": False, "error": "Qt app executable not found"}
+                cmd = [exe, "--timeline", req.video_path]
         else:
             viewer = os.path.join(_ROOT, "signal_timeline_viewer.py")
             if not os.path.exists(viewer):

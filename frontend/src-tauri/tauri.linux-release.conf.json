@@ -1,0 +1,11 @@
+{
+  "bundle": {
+    "active": false,
+    "resources": {
+      "../../dist-sidecar/vh-sidecar": "vh-sidecar",
+      "../../dist-viewer/vh-viewer": "vh-viewer",
+      "../../LICENSE": "LICENSE",
+      "../../COPYRIGHT": "COPYRIGHT"
+    }
+  }
+}

@@ -2,8 +2,8 @@
 //
 // On startup it launches the Python FastAPI sidecar (the highlight engine) and
 // tears it down on exit. In a packaged build the sidecar is a PyInstaller binary
-// declared in tauri.conf.json `externalBin`; in `tauri dev` we fall back to
-// running the project venv's python against sidecar.server so you don't need to
+// bundled as a resource; in `tauri dev` we fall back to running the
+// project venv's python against sidecar.server so you don't need to
 // rebuild the binary on every change.
 
 use std::sync::Mutex;
@@ -21,14 +21,13 @@ struct SidecarProcess(Mutex<Option<CommandChild>>);
 /// the bundled PyInstaller build (see below).
 #[cfg(debug_assertions)]
 fn sidecar_command(app: &tauri::AppHandle) -> tauri_plugin_shell::process::Command {
-    // cargo runs with CWD = src-tauri/, so the project root is two levels up.
+    // Do not depend on the directory the user launches tauri dev from.
     // Use absolute paths: a relative python path resolves against the spawned
     // process's CWD and breaks venv detection ("No pyvenv.cfg file").
     //
     // canonicalize() returns a \\?\-prefixed UNC path on Windows, which CPython
     // mishandles when locating pyvenv.cfg — strip the prefix.
-    let raw_root = std::env::current_dir()
-        .unwrap()
+    let raw_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
         .join("..")
         .canonicalize()
@@ -36,7 +35,11 @@ fn sidecar_command(app: &tauri::AppHandle) -> tauri_plugin_shell::process::Comma
     let project_root = std::path::PathBuf::from(
         raw_root.to_string_lossy().trim_start_matches(r"\\?\").to_string(),
     );
-    let py = project_root.join(".venv").join("Scripts").join("python.exe");
+    let py = project_root.join(".venv").join(if cfg!(windows) {
+        "Scripts/python.exe"
+    } else {
+        "bin/python"
+    });
     println!("[vh] dev sidecar: {} (cwd {})", py.display(), project_root.display());
     app.shell()
         .command(py.to_string_lossy().to_string())
@@ -57,7 +60,14 @@ fn sidecar_command(app: &tauri::AppHandle) -> tauri_plugin_shell::process::Comma
 
     let exe = app
         .path()
-        .resolve("vh-sidecar/vh-sidecar.exe", BaseDirectory::Resource)
+        .resolve(
+            if cfg!(windows) {
+                "vh-sidecar/vh-sidecar.exe"
+            } else {
+                "vh-sidecar/vh-sidecar"
+            },
+            BaseDirectory::Resource,
+        )
         .expect("bundled vh-sidecar missing from resources");
     let dir = exe.parent().expect("sidecar exe has no parent").to_path_buf();
     println!("[vh] sidecar: {}", exe.display());

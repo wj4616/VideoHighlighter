@@ -5,7 +5,7 @@ engine running behind it as a FastAPI sidecar.
 
 ```
 frontend/           Vite + React + Tailwind v4 + shadcn/ui   (this directory)
-frontend/src-tauri/ Tauri shell (WebView2); spawns and reaps the sidecar
+frontend/src-tauri/ Tauri shell (WebKitGTK on Linux, WebView2 on Windows); spawns and reaps the sidecar
 sidecar/server.py   FastAPI over the engine; streams log/progress on a WebSocket
 sidecar/worker.py   Runs each job in a child process (see "Why a child process")
 ```
@@ -90,3 +90,57 @@ that would kill the HTTP server and leave the UI staring at a dead socket, so
 each job runs in a spawned child; if it dies, the parent reports
 "The processing engine stopped unexpectedly" and stays up for the next run.
 `main.py` works around the same class of problem by hard-exiting on close.
+
+## Linux desktop (native picker)
+
+The React interface can run inside a native Tauri window on Linux; browser preview mode
+cannot expose absolute paths or a native picker. The debug shell starts the local Python
+sidecar from the repository virtual environment and stops it on exit. Do not start a
+separate server on port 8756 while using the shell.
+
+From the repository root, after installing Rust/Cargo, the Tauri GTK/WebKit development
+libraries, Node/Corepack, and the full Python requirements:
+
+```sh
+python -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+cd frontend
+corepack pnpm install --frozen-lockfile
+PATH="$HOME/.cargo/bin:$PATH" corepack pnpm tauri dev
+```
+
+On Linux, the automatically merged `tauri.linux.conf.json` removes the Windows-only
+bundled sidecar resource during development and configures a local Vite server.
+The native picker uses the Tauri dialog plugin. The Timeline Viewer remains a
+separate Qt window started by the Python sidecar.
+
+For a self-contained **release**, bundle both onedir Python executables before
+building Tauri. The release config adds them as sibling resources; unlike the
+source launch, a frozen sidecar cannot execute the viewer Python script:
+
+```sh
+cd /path/to/VideoHighlighter
+.venv/bin/python -m pip install pyinstaller
+.venv/bin/python -m PyInstaller packaging/vh-sidecar.spec --noconfirm --distpath dist-sidecar --workpath build-sidecar
+.venv/bin/python -m PyInstaller packaging/vh-viewer.spec --noconfirm --distpath dist-viewer --workpath build-viewer
+cd frontend
+PATH="$HOME/.cargo/bin:$PATH" corepack pnpm tauri build --no-bundle --config src-tauri/tauri.linux-release.conf.json
+cd ..
+packaging/build-linux-folder.sh "$PWD/dist-linux-portable"
+tar --numeric-owner -I "zstd -T4 -3" -cf dist-linux-portable/VideoHighlighter-Linux-x86_64.tar.zst -C dist-linux-portable usr
+```
+The folder/archive includes the upstream AGPL-3.0 LICENSE and COPYRIGHT notices; fork
+source: https://github.com/wj4616/VideoHighlighter. The release is not covered by
+the source-mode smoke test: verify the bundled sidecar, model assets, native
+picker and Qt Timeline Viewer independently.
+
+On Arch/CachyOS, a matching `usr/bin` + `usr/lib/Video Highlighter` folder can
+run without installing system-wide, provided WebKitGTK 4.1 and GTK 3 are
+installed. Keep the two directories together; the sidecar and viewer are looked
+up relative to the desktop executable. After building the Tauri binary and
+both Python bundles, `packaging/build-linux-folder.sh /new/output/path` from the
+repository creates this layout without replacing any existing destination.
+Run `/new/output/path/usr/bin/video-highlighter`. This is a local Linux folder,
+not an AppImage or a universal cross-distribution package. The oversized
+Tauri-generated `.deb` exceeded the `ar` member-size limit and was invalid;
+bundling is deliberately disabled until that package can be made smaller.
