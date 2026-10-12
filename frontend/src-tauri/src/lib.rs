@@ -108,8 +108,30 @@ fn spawn_sidecar(app: &tauri::AppHandle) {
     *state.0.lock().unwrap() = Some(child);
 }
 
+#[cfg(target_os = "linux")]
+fn configure_linux_webview() {
+    // On NVIDIA + Wayland, WebKitGTK can abort the window with a GDK protocol
+    // error or fail to allocate GBM buffers. XWayland plus the non-DMA-BUF
+    // renderer works on that combination. Leave explicit user choices intact,
+    // and never require XWayland on systems where DISPLAY is absent.
+    if std::env::var_os("WAYLAND_DISPLAY").is_some()
+        && std::env::var_os("DISPLAY").is_some()
+        && std::path::Path::new("/proc/driver/nvidia/version").is_file()
+    {
+        if std::env::var_os("GDK_BACKEND").is_none() {
+            std::env::set_var("GDK_BACKEND", "x11");
+        }
+        if std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
+            std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(target_os = "linux")]
+    configure_linux_webview();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())

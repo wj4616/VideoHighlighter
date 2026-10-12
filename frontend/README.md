@@ -112,7 +112,10 @@ PATH="$HOME/.cargo/bin:$PATH" corepack pnpm tauri dev
 On Linux, the automatically merged `tauri.linux.conf.json` removes the Windows-only
 bundled sidecar resource during development and configures a local Vite server.
 The native picker uses the Tauri dialog plugin. The Timeline Viewer remains a
-separate Qt window started by the Python sidecar.
+separate Qt window started by the Python sidecar. On NVIDIA Wayland desktops
+with XWayland available, the shell defaults to X11 and disables WebKitGTK's
+DMA-BUF renderer before GTK starts; explicit GDK_BACKEND or
+WEBKIT_DISABLE_DMABUF_RENDERER environment settings take precedence.
 
 For a self-contained **release**, bundle both onedir Python executables before
 building Tauri. The release config adds them as sibling resources; unlike the
