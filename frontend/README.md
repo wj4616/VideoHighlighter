@@ -132,7 +132,10 @@ cd ..
 packaging/build-linux-folder.sh "$PWD/dist-linux-portable"
 tar --numeric-owner -I "zstd -T4 -3" -cf dist-linux-portable/VideoHighlighter-Linux-x86_64.tar.zst -C dist-linux-portable usr
 ```
-The folder/archive includes the upstream AGPL-3.0 LICENSE and COPYRIGHT notices; fork
+Archive the new folder **before launching it**: the running sidecar may update
+runtime files, and tar must not capture those or a changing directory. The
+portable folder and archive include the upstream AGPL-3.0 LICENSE and COPYRIGHT
+notices; fork
 source: https://github.com/wj4616/VideoHighlighter. The release is not covered by
 the source-mode smoke test: verify the bundled sidecar, model assets, native
 picker and Qt Timeline Viewer independently.
