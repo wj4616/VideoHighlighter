@@ -11,9 +11,10 @@ import sys
 from pathlib import Path
 
 from PySide6.QtCore import QSettings, QStorageInfo, QUrl, Qt
-from PySide6.QtWidgets import QDialog, QFileDialog, QListView, QMessageBox
+from PySide6.QtWidgets import QDialog, QFileDialog, QFileSystemModel, QListView, QMessageBox
 
 from modules.segments.simple_run import VIDEO_SUFFIXES
+from modules.ui.video_thumbnails import ThumbnailController
 
 
 def _accessible_directory(path: str) -> bool:
@@ -89,6 +90,10 @@ def create_video_dialog(parent=None) -> QFileDialog:
             sidebar.setMinimumWidth(220)
             sidebar.setTextElideMode(Qt.TextElideMode.ElideMiddle)
         dialog.resize(960, 640)
+        view = dialog.findChild(QListView, "listView")
+        model = dialog.findChild(QFileSystemModel, "qt_filesystem_model")
+        if view is not None and model is not None:
+            dialog.thumbnail_controller = ThumbnailController(dialog, view, model)
     return dialog
 
 

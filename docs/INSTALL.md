@@ -102,6 +102,11 @@ next time, the picker falls back to your home folder. Video filters cover MP4,
 MOV, AVI, MKV, WebM and M4V (including uppercase extensions); **All files**
 allows other containers supported by the local decoder. This changes only the
 project's Qt video picker, not the OS's file manager or Tauri's native dialog.
+The Qt picker shows video-frame thumbnails in its icon grid. It loads visible
+items asynchronously with FFmpeg, so large folders remain responsive; folders
+keep their usual icons, and unsupported/unreadable videos retain a generic
+file icon. Previews are cached only in memory for the open picker, not saved to
+disk.
 
 ## Two front ends
 
