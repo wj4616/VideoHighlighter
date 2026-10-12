@@ -27,6 +27,12 @@ native Qt timeline viewer is still used for the video-heavy surfaces — the
   bed is applied once to the reel, in one of three modes: **replace** clip
   audio, **mix** under it, or **duck** it (music dips when the clip is loud).
   Runs as a `combine` job (`POST /combine`).
+- **Auto → Reel tab** — Auto writes `job.json` in its project folder, recording
+  the exact highlight files. Those highlights can live beside the source media
+  on another drive, not under the project folder. Reel reads the manifest first;
+  reopening the app restores the last Auto project folder. For an older run
+  whose project was not yet remembered, select its existing project folder in
+  Reel once. You do not need to rerun Auto.
 - **Rotation-correct output** — the engine reads each clip's orientation
   metadata (`GET /video-info` → `rotation`) and bakes rotated phone/GoPro
   footage upright when cutting and combining, so the reel isn't sideways.

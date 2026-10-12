@@ -193,6 +193,10 @@ export default function App() {
           if (h.output) setOutput(h.output)
           const paths: string[] = res.config.video?.paths ?? []
           if (paths.length) setVideos((current) => current.length ? current : paths)
+          const savedAutoRoot = res.config.auto?.last_root
+          if (typeof savedAutoRoot === "string" && savedAutoRoot.trim()) {
+            setLastRoot(savedAutoRoot)
+          }
           const d = res.config.download ?? {}
           setDl((s) => ({
             ...s,
@@ -511,6 +515,7 @@ export default function App() {
       }),
     })
     if (!res.ok) failRun(res.error ?? "Failed to start the pipeline")
+    else void saveConfigFile({ auto: { last_root: opts.dest_root } })
   }
 
   const addVideos = async () => {
@@ -769,6 +774,7 @@ export default function App() {
           <AutoTab
             running={running}
             stages={autoStages}
+            suggestedRoot={lastRoot}
             onStart={(o) => void onAutoStart(o)}
             onCancel={() => void onCancel()}
           />

@@ -87,6 +87,7 @@ function StageIcon({ status }: { status: AutoStageStatus }) {
 
 export interface AutoTabProps {
   running: boolean
+  suggestedRoot?: string
   /** Live stage status, fed by the App's `stage` events. */
   stages: Partial<Record<AutoStageName, { status: AutoStageStatus; detail: string }>>
   onStart: (opts: {
@@ -114,13 +115,17 @@ const RESOLUTIONS = [
   { label: "4K", width: 3840, height: 2160 },
 ]
 
-export function AutoTab({ running, stages, onStart, onCancel }: AutoTabProps) {
+export function AutoTab({ running, stages, onStart, onCancel, suggestedRoot }: AutoTabProps) {
   const [cards, setCards] = useState<GoProCardInfo[]>([])
   const [scanning, setScanning] = useState(false)
   const [selectedCard, setSelectedCard] = useState<string>("")
   const [manualFiles, setManualFiles] = useState<string[]>([])
 
   const [destRoot, setDestRoot] = useState("")
+
+  useEffect(() => {
+    if (suggestedRoot && !destRoot) setDestRoot(suggestedRoot)
+  }, [suggestedRoot, destRoot])
   const [folderName, setFolderName] = useState("")
   const [outputName, setOutputName] = useState("film.mp4")
   const [resume, setResume] = useState(true)

@@ -1017,13 +1017,34 @@ class ReelRequest(BaseModel):
 
 def _reel_sources(req: "ReelRequest") -> list[str]:
     """The clips a reel is built from: whatever the caller passed, else the
-    highlights an earlier run left in the project folder."""
+    highlights recorded by Auto, even when they live beside source footage."""
     import glob
 
     if req.source_paths:
         return [p for p in req.source_paths if p and os.path.exists(p)]
     if not req.dest_root:
         return []
+
+    # Auto records the exact highlight outputs in job.json. The engine often
+    # writes them alongside the input footage (possibly on another drive), not
+    # below dest_root. A folder glob must never be the primary handoff.
+    from modules.segments.auto_pipeline import job_path, load_job
+
+    saved = job_path(req.dest_root)
+    if os.path.isfile(saved):
+        state = load_job(saved)
+        highlights = [
+            p if os.path.isabs(p) else os.path.join(req.dest_root, p)
+            for p in state.highlights
+            if p
+        ]
+        existing = list(dict.fromkeys(p for p in highlights if os.path.isfile(p)))
+        if existing:
+            return existing
+        if highlights:
+            raise ValueError("Auto job recorded highlights, but their files are missing")
+
+    # Older project folders without a job manifest may still have local clips.
     found: list[str] = []
     for pattern in ("*_highlight.mp4", "*/*_highlight.mp4"):
         found.extend(glob.glob(os.path.join(req.dest_root, pattern)))
