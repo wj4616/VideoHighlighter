@@ -173,33 +173,46 @@ export default function App() {
 
   // Restore settings from config.yaml — the same file the Qt GUI reads/writes.
   useEffect(() => {
+    let cancelled = false
     void (async () => {
-      const res = await getConfigFile()
-      if (res.ok) {
-        setCfg((c) => ({ ...c, ...fromConfigFile(res.config) }))
-        const h = res.config.highlights ?? {}
-        setTimeRange({
-          enabled: Boolean(h.use_time_range),
-          startPct: h.range_start_pct ?? 0,
-          endPct: h.range_end_pct ?? 100,
-        })
-        if (h.output) setOutput(h.output)
-        const paths: string[] = res.config.video?.paths ?? []
-        if (paths.length) setVideos(paths)
-        const d = res.config.download ?? {}
-        setDl((s) => ({
-          ...s,
-          url: d.last_url ?? s.url,
-          saveDir: d.save_dir ?? s.saveDir,
-          downloadFull: d.download_full ?? s.downloadFull,
-          rangeStart: d.time_range_start ?? s.rangeStart,
-          rangeEnd: d.time_range_end ?? s.rangeEnd,
-          concurrent: d.concurrent_downloads ?? s.concurrent,
-          autoAdd: d.auto_add ?? s.autoAdd,
-        }))
+      // The native window can mount before its frozen Python sidecar has bound
+      // 8756. Do not lose saved inputs (or write UI defaults over them) when
+      // that one early request races the engine startup.
+      while (!cancelled) {
+        try {
+          const res = await getConfigFile()
+          if (!res.ok) throw new Error("Config not ready")
+          if (cancelled) return
+          setCfg((c) => ({ ...c, ...fromConfigFile(res.config) }))
+          const h = res.config.highlights ?? {}
+          setTimeRange({
+            enabled: Boolean(h.use_time_range),
+            startPct: h.range_start_pct ?? 0,
+            endPct: h.range_end_pct ?? 100,
+          })
+          if (h.output) setOutput(h.output)
+          const paths: string[] = res.config.video?.paths ?? []
+          if (paths.length) setVideos((current) => current.length ? current : paths)
+          const d = res.config.download ?? {}
+          setDl((s) => ({
+            ...s,
+            url: d.last_url ?? s.url,
+            saveDir: d.save_dir ?? s.saveDir,
+            downloadFull: d.download_full ?? s.downloadFull,
+            rangeStart: d.time_range_start ?? s.rangeStart,
+            rangeEnd: d.time_range_end ?? s.rangeEnd,
+            concurrent: d.concurrent_downloads ?? s.concurrent,
+            autoAdd: d.auto_add ?? s.autoAdd,
+          }))
+          setLoaded(true)
+          return
+        } catch {
+          // The health poll reports reachability; keep saved settings intact.
+        }
+        await new Promise((resolve) => setTimeout(resolve, 500))
       }
-      setLoaded(true)
     })()
+    return () => { cancelled = true }
   }, [])
 
   // Persist settings whenever they settle, mirroring the Qt app's save-on-close.

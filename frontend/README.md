@@ -115,7 +115,12 @@ The native picker uses the Tauri dialog plugin. The Timeline Viewer remains a
 separate Qt window started by the Python sidecar. On NVIDIA Wayland desktops
 with XWayland available, the shell defaults to X11 and disables WebKitGTK's
 DMA-BUF renderer before GTK starts; explicit GDK_BACKEND or
-WEBKIT_DISABLE_DMABUF_RENDERER environment settings take precedence.
+WEBKIT_DISABLE_DMABUF_RENDERER environment settings take precedence. Input-card
+posters and durations come from the local sidecar (FFmpeg/ffprobe), not HTML
+video decoding in WebKitGTK: a crashed WebKitWebProcess otherwise leaves an
+empty window while its sidecar remains healthy. The original file stays untouched.
+The UI retries loading saved settings until the bundled sidecar has started;
+launching the window before Python binds the local port no longer loses inputs.
 
 For a self-contained **release**, bundle both onedir Python executables before
 building Tauri. The release config adds them as sibling resources; unlike the
@@ -132,6 +137,9 @@ cd ..
 packaging/build-linux-folder.sh "$PWD/dist-linux-portable"
 tar --numeric-owner -I "zstd -T4 -3" -cf dist-linux-portable/VideoHighlighter-Linux-x86_64.tar.zst -C dist-linux-portable usr
 ```
+The frozen sidecar seeds settings from `packaging/defaults/config.yaml`, not the
+mutable repository `config.yaml` (which can contain private local footage paths).
+Preserve existing user settings separately when updating a local install.
 Archive the new folder **before launching it**: the running sidecar may update
 runtime files, and tar must not capture those or a changing directory. The
 portable folder and archive include the upstream AGPL-3.0 LICENSE and COPYRIGHT

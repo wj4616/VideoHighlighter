@@ -44,8 +44,9 @@ if _ROOT not in sys.path:
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 from sidecar import worker
@@ -508,6 +509,24 @@ async def save_composition_rules(req: CompRulesRequest) -> dict:
 # ── Video probing ─────────────────────────────────────────────────────────
 
 
+@app.get("/video-poster")
+async def video_poster(path: str) -> Response:
+    """JPEG card poster via FFmpeg, never the WebKit media decoder."""
+    from modules.media.poster import extract_poster
+
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail="video not found")
+    async with _poster_slots:
+        jpeg = await asyncio.to_thread(extract_poster, path)
+    if not jpeg:
+        raise HTTPException(status_code=422, detail="poster unavailable")
+    return Response(jpeg, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
+
+
+_poster_slots = asyncio.Semaphore(2)
+_probe_slots = asyncio.Semaphore(4)
+
+
 @app.get("/video-info")
 async def video_info(path: str) -> dict:
     """Full display metadata for a video, so the UI can show a real time-range
@@ -520,7 +539,8 @@ async def video_info(path: str) -> dict:
             return {"ok": False, "error": "file not found"}
         from modules.media.video_probe import probe_video
 
-        info = await asyncio.to_thread(probe_video, path)
+        async with _probe_slots:
+            info = await asyncio.to_thread(probe_video, path)
         return {
             "ok": True,
             "duration": float(info.get("duration") or 0),

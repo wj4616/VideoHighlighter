@@ -31,7 +31,9 @@ def _p(*parts):
 
 
 datas = [
-    (_p("config.yaml"), "."),
+    # A repository config.yaml can contain private video paths and user settings.
+    # Freeze the reviewed, versioned baseline rather than the mutable worktree.
+    (_p("packaging", "defaults", "config.yaml"), "."),
     (_p("yolo_objects_labels.json"), "."),
     (_p("kinetics_700_labels.json"), "."),
     (_p("modules"), "modules"),
