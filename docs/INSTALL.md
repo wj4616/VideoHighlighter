@@ -89,6 +89,20 @@ virtual environment and run `.venv/bin/python -m pytest -q`.
 FFmpeg comes with it via `imageio-ffmpeg` — nothing to install separately. An
 FFmpeg already on your `PATH` is used instead when there is one.
 
+### Videos on other drives
+
+In the Qt desktop app, **Add Videos** (and the Simple screen's browse button)
+opens a multi-file dialog with shortcuts to currently mounted internal, USB,
+encrypted and network volumes. Mount/unlock a drive in the system file manager
+first; reopen the picker after hot-plugging it. You can also navigate from
+**/** to any local path, including `/run/media/<username>/...`.
+
+The last selected folder is remembered. If a removable drive is unavailable
+next time, the picker falls back to your home folder. Video filters cover MP4,
+MOV, AVI, MKV, WebM and M4V (including uppercase extensions); **All files**
+allows other containers supported by the local decoder. This changes only the
+project's Qt video picker, not the OS's file manager or Tauri's native dialog.
+
 ## Two front ends
 
 Both drive the same engine:

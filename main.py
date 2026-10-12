@@ -74,6 +74,7 @@ from modules.media.video_cache import VideoAnalysisCache, CachedAnalysisData, bu
 from modules.report import analysis_stats
 from modules.ui import icons as _ui_icons, theme as _ui_theme
 from modules.segments.simple_run import apply_simple_run
+from modules.ui.local_video_picker import pick_video_files
 from modules.ui.simple_start import (
     SimpleStartPage, persist_simple_start, simple_start_enabled,
 )
@@ -4391,9 +4392,7 @@ class VideoHighlighterGUI(QWidget):
     # --- Multi-file support methods ---
     def browse_files(self):
         """Add one or more video files"""
-        file_paths, _ = QFileDialog.getOpenFileNames(
-            self, "Select Video(s)", "", "Videos (*.mp4 *.mov *.avi *.mkv)"
-        )
+        file_paths = pick_video_files(self)
         existing = self.get_file_list()
         for path in file_paths:
             if path not in existing:
